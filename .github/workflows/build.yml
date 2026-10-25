@@ -1,9 +1,10 @@
-name: Build and Release Lua Script
+name: Build, Sign and Release Lua Script
 
 on:
   push:
     branches:
       - main
+      - master
   workflow_dispatch:
     inputs:
       script_name:
@@ -15,6 +16,11 @@ on:
         description: 'Версия релиза (например, v1.0.0)'
         required: true
         default: 'v1.0.0'
+        type: string
+      release_description:
+        description: 'Описание релиза (что нового, изменения)'
+        required: true
+        default: 'Релиз скомпилированного LuaJIT байт-кода.'
         type: string
 
 jobs:
@@ -28,21 +34,24 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install LuaJIT
+      - name: Install Dependencies (LuaJIT & GnuPG)
         run: |
           sudo apt-get update
-          sudo apt-get install -y luajit
+          sudo apt-get install -y luajit gnupg
 
       - name: Set variables
         id: vars
         run: |
-          # Если запуск ручной, берем данные из полей ввода, иначе значения по умолчанию
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "SCRIPT_NAME=${{ inputs.script_name }}" >> $GITHUB_ENV
             echo "VERSION=${{ inputs.version }}" >> $GITHUB_ENV
+            echo "RELEASE_DESC<<EOF" >> $GITHUB_ENV
+            echo "${{ inputs.release_description }}" >> $GITHUB_ENV
+            echo "EOF" >> $GITHUB_ENV
           else
             echo "SCRIPT_NAME=florenswitcher" >> $GITHUB_ENV
             echo "VERSION=v1.0.0" >> $GITHUB_ENV
+            echo "RELEASE_DESC=Автоматический релиз скомпилированного скрипта." >> $GITHUB_ENV
           fi
 
       - name: Compile script to bytecode
@@ -53,12 +62,78 @@ jobs:
           echo "Компиляция $SRC -> $DEST"
           luajit -b "$SRC" "$DEST"
 
-      - name: Create Release and Upload Asset
+      - name: Generate Checksums & GPG Signature using Personal Key
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: |
+          DEST="${{ env.SCRIPT_NAME }}.luac"
+
+          # 1. Генерация контрольных сумм
+          sha256sum "$DEST" > "${DEST}.sha256"
+          sha512sum "$DEST" > "${DEST}.sha512"
+
+          # 2. Импорт вашего личного GPG ключа из Secrets
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+
+          # Получаем ID (отпечаток) вашего импортированного ключа
+          KEY_ID=$(gpg --list-secret-keys --with-colons | grep fpr | head -n 1 | cut -d: -f10)
+          echo "Используется GPG ключ с ID: $KEY_ID"
+
+          # Экспортируем публичный ключ для релиза
+          gpg --armor --export "$KEY_ID" > publickey.asc
+
+          # Подписываем скомпилированный файл вашим ключом (открепленная подпись .asc)
+          gpg --batch --yes --default-key "$KEY_ID" --detach-sign --armor --output "${DEST}.asc" "$DEST"
+
+      - name: Prepare Release Body with Instructions
+        id: release_text
+        run: |
+          DESC="${{ env.RELEASE_DESC }}"
+          SCRIPT="${{ env.SCRIPT_NAME }}.luac"
+          
+          BODY="$DESC
+
+          ---
+          ### 🔐 Проверка целостности и подписи (Verification)
+
+          Вы можете проверить подлинность и неизменность загруженного файла с помощью контрольных сумм и GPG-подписи.
+
+          #### 1. Проверка контрольных сумм (Checksums)
+          Убедитесь, что хэш файла совпадает:
+          \`\`\`bash
+          sha256sum -c $SCRIPT.sha256
+          sha512sum -c $SCRIPT.sha512
+          \`\`\`
+
+          #### 2. Проверка GPG-подписи (.asc)
+          Импортируйте наш публичный ключ из файла \`publickey.asc\`:
+          \`\`\`bash
+          gpg --import publickey.asc
+          \`\`\`
+          Затем выполните проверку подписи файла:
+          \`\`\`bash
+          gpg --verify $SCRIPT.asc $SCRIPT
+          \`\`\`
+          *Убедитесь, что в выводе консоли отображается статус \`Good signature\`.*"
+
+          # Экранируем переносы строк для GitHub Actions
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          echo "BODY<<$EOF" >> $GITHUB_ENV
+          echo "$BODY" >> $GITHUB_ENV
+          echo "$EOF" >> $GITHUB_ENV
+
+      - name: Create Release and Upload Assets
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.VERSION }}
           name: Release ${{ env.VERSION }}
-          files: ${{ env.SCRIPT_NAME }}.luac
+          body: ${{ env.BODY }}
+          files: |
+            ${{ env.SCRIPT_NAME }}.luac
+            ${{ env.SCRIPT_NAME }}.luac.asc
+            ${{ env.SCRIPT_NAME }}.luac.sha256
+            ${{ env.SCRIPT_NAME }}.luac.sha512
+            publickey.asc
           draft: false
           prerelease: false
         env:
