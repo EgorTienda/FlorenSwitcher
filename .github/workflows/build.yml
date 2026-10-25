@@ -62,9 +62,10 @@ jobs:
           echo "Компиляция $SRC -> $DEST"
           luajit -b "$SRC" "$DEST"
 
-      - name: Generate Checksums & GPG Signature using Personal Key
+      - name: Generate Checksums & GPG Signature
         env:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PUBLIC_KEY: ${{ secrets.GPG_PUBLIC_KEY }}
         run: |
           DEST="${{ env.SCRIPT_NAME }}.luac"
 
@@ -72,17 +73,17 @@ jobs:
           sha256sum "$DEST" > "${DEST}.sha256"
           sha512sum "$DEST" > "${DEST}.sha512"
 
-          # 2. Импорт вашего личного GPG ключа из Secrets
+          # 2. Импорт личного GPG ключа для подписи
           echo "$GPG_PRIVATE_KEY" | gpg --batch --import
 
-          # Получаем ID (отпечаток) вашего импортированного ключа
+          # Получаем ID (отпечаток) импортированного ключа
           KEY_ID=$(gpg --list-secret-keys --with-colons | grep fpr | head -n 1 | cut -d: -f10)
           echo "Используется GPG ключ с ID: $KEY_ID"
 
-          # Экспортируем публичный ключ для релиза
-          gpg --armor --export "$KEY_ID" > publickey.asc
+          # 3. Создаем publickey.asc из секретной переменной GPG_PUBLIC_KEY
+          echo "$GPG_PUBLIC_KEY" > publickey.asc
 
-          # Подписываем скомпилированный файл вашим ключом (открепленная подпись .asc)
+          # 4. Подписываем скомпилированный файл вашим ключом (открепленная подпись .asc)
           gpg --batch --yes --default-key "$KEY_ID" --detach-sign --armor --output "${DEST}.asc" "$DEST"
 
       - name: Prepare Release Body with Instructions
