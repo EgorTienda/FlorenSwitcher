@@ -6,7 +6,7 @@ require "lib.moonloader"
 local inicfg = require "inicfg"
 local memory = require "memory"
 
--- Конфигурация по умолчанию
+-- РљРѕРЅС„РёРіСѓСЂР°С†РёСЏ РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ
 local defaultConfig = {
     settings = {
         time_command = "time",
@@ -14,17 +14,17 @@ local defaultConfig = {
         reset_command = "reset",
         maxhour = 24,
         maxweathervalue = 45,
-        default_hour = -1,     -- -1 означает, что по умолчанию лок выключен
-        default_weather = -1   -- -1 означает, что по умолчанию лок выключен
+        default_hour = -1,     -- -1 РѕР·РЅР°С‡Р°РµС‚, С‡С‚Рѕ РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ Р»РѕРє РІС‹РєР»СЋС‡РµРЅ
+        default_weather = -1   -- -1 РѕР·РЅР°С‡Р°РµС‚, С‡С‚Рѕ РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ Р»РѕРє РІС‹РєР»СЋС‡РµРЅ
     }
 }
 
 local cfg = {}
 local config_name = "florenswitcher.ini"
--- Полный путь к файлу конфигурации в папке config/
+-- РџРѕР»РЅС‹Р№ РїСѓС‚СЊ Рє С„Р°Р№Р»Сѓ РєРѕРЅС„РёРіСѓСЂР°С†РёРё РІ РїР°РїРєРµ config/
 local config_full_path = getWorkingDirectory() .. "\\config\\" .. config_name
 
--- Переменные для сохранения текущего принудительного состояния (-1 = выключено)
+-- РџРµСЂРµРјРµРЅРЅС‹Рµ РґР»СЏ СЃРѕС…СЂР°РЅРµРЅРёСЏ С‚РµРєСѓС‰РµРіРѕ РїСЂРёРЅСѓРґРёС‚РµР»СЊРЅРѕРіРѕ СЃРѕСЃС‚РѕСЏРЅРёСЏ (-1 = РІС‹РєР»СЋС‡РµРЅРѕ)
 local locked_hour = -1
 local locked_minute = 0
 local locked_weather = -1
@@ -33,51 +33,45 @@ function main()
     if not isSampLoaded() or not isSampfuncsLoaded() then return end
     while not isSampAvailable() do wait(100) end
 
-    sampfuncsLog("[FlorenSwitcher Debug] Скрипт инициализирован. Путь к конфигу: " .. config_full_path)
 
-    -- Проверка и создание папки config, если её нет
+    -- РџСЂРѕРІРµСЂРєР° Рё СЃРѕР·РґР°РЅРёРµ РїР°РїРєРё config, РµСЃР»Рё РµС‘ РЅРµС‚
     local config_dir = getWorkingDirectory() .. "\\config"
     if not doesDirectoryExist(config_dir) then
-        sampfuncsLog("[FlorenSwitcher Debug] Папка config не найдена. Создаем...")
         createDirectory(config_dir)
     end
 
-    -- Загрузка или создание INI-файла
+    -- Р—Р°РіСЂСѓР·РєР° РёР»Рё СЃРѕР·РґР°РЅРёРµ INI-С„Р°Р№Р»Р°
     cfg = inicfg.load(defaultConfig, config_name)
     if not cfg then
-        sampfuncsLog("[FlorenSwitcher Debug] Конфиг не найден или ошибка чтения. Создаем дефолтный...")
         cfg = defaultConfig
         local save_status = inicfg.save(defaultConfig, config_name)
         if save_status then
-            sampfuncsLog("[FlorenSwitcher Debug] Дефолтный конфиг успешно сохранен!")
         else
-            sampfuncsLog("[FlorenSwitcher Debug] ОШИБКА: Не удалось сохранить дефолтный конфиг!")
         end
     else
-        sampfuncsLog("[FlorenSwitcher Debug] Конфиг успешно загружен из файла.")
     end
 
-    -- Читаем сохраненные параметры времени и погоды из конфига при запуске
+    -- Р§РёС‚Р°РµРј СЃРѕС…СЂР°РЅРµРЅРЅС‹Рµ РїР°СЂР°РјРµС‚СЂС‹ РІСЂРµРјРµРЅРё Рё РїРѕРіРѕРґС‹ РёР· РєРѕРЅС„РёРіР° РїСЂРё Р·Р°РїСѓСЃРєРµ
     if cfg.settings.default_hour and cfg.settings.default_hour >= 0 then
         locked_hour = cfg.settings.default_hour
-        sampfuncsLog("[FlorenSwitcher Debug] Загружено сохраненное время из конфига: " .. locked_hour)
     end
     if cfg.settings.default_weather and cfg.settings.default_weather >= 0 then
         locked_weather = cfg.settings.default_weather
-        sampfuncsLog("[FlorenSwitcher Debug] Загружена сохраненная погода из конфига: " .. locked_weather)
     end
 
-    -- Вывод сообщений в чат
-    sampAddChatMessage("{73b4ff}[FlorenSwitcher]{ffffff} Скрипт запущен.", -1)
-    sampAddChatMessage(string.format("{73b4ff}[FlorenSwitcher]{ffffff} Автор скрипта: Egor Tienda. Команды: /%s, /%s, /%s", 
+    -- Р’С‹РІРѕРґ СЃРѕРѕР±С‰РµРЅРёР№ РІ С‡Р°С‚
+    sampAddChatMessage("{73b4ff}[FlorenSwitcher]{ffffff} РЎРєСЂРёРїС‚ Р·Р°РїСѓС‰РµРЅ.", -1)
+    sampAddChatMessage("{73b4ff}[FlorenSwitcher]{ffffff} Р РµРїРѕР·РёС‚РѕСЂРёР№ GitHub: https://github.com/EgorTienda/FlorenSwitcher", -1)
+
+    sampAddChatMessage(string.format("{73b4ff}[FlorenSwitcher]{ffffff} РђРІС‚РѕСЂ СЃРєСЂРёРїС‚Р°: Egor Tienda. РљРѕРјР°РЅРґС‹: /%s, /%s, /%s", 
         cfg.settings.time_command, cfg.settings.weather_command, cfg.settings.reset_command or "reset"), -1)
 
-    -- Регистрация команд из конфига
+    -- Р РµРіРёСЃС‚СЂР°С†РёСЏ РєРѕРјР°РЅРґ РёР· РєРѕРЅС„РёРіР°
     sampRegisterChatCommand(cfg.settings.weather_command, cmd_weather)
     sampRegisterChatCommand(cfg.settings.time_command, cmd_time)
     sampRegisterChatCommand(cfg.settings.reset_command or "reset", cmd_reset)
 
-    -- Фоновый поток для постоянного удержания зафиксированного времени и погоды
+    -- Р¤РѕРЅРѕРІС‹Р№ РїРѕС‚РѕРє РґР»СЏ РїРѕСЃС‚РѕСЏРЅРЅРѕРіРѕ СѓРґРµСЂР¶Р°РЅРёСЏ Р·Р°С„РёРєСЃРёСЂРѕРІР°РЅРЅРѕРіРѕ РІСЂРµРјРµРЅРё Рё РїРѕРіРѕРґС‹
     lua_thread.create(function()
         while true do
             wait(0)
@@ -96,7 +90,7 @@ function main()
     end
 end
 
--- Обработчик команды погоды
+-- РћР±СЂР°Р±РѕС‚С‡РёРє РєРѕРјР°РЅРґС‹ РїРѕРіРѕРґС‹
 function cmd_weather(arg)
     local maxWeather = cfg.settings.maxweathervalue or 45
     if arg and arg:match("^%d+$") then
@@ -107,23 +101,23 @@ function cmd_weather(arg)
             cfg.settings.default_weather = weatherId
             local result = inicfg.save(cfg, config_name)
             if result then
-                sampfuncsLog("[FlorenSwitcher Debug] Погода " .. weatherId .. " сохранена в конфиг.")
+                sampfuncsLog("[FlorenSwitcher] РџРѕРіРѕРґР° " .. weatherId .. " СЃРѕС…СЂР°РЅРµРЅР° РІ РєРѕРЅС„РёРі.")
             else
-                sampfuncsLog("[FlorenSwitcher Debug] ОШИБКА сохранения погоды в конфиг!")
+                sampfuncsLog("[FlorenSwitcher] РћРЁРР‘РљРђ СЃРѕС…СЂР°РЅРµРЅРёСЏ РїРѕРіРѕРґС‹ РІ РєРѕРЅС„РёРі!")
             end
 
             memory.setint32(0xC81320, weatherId, true)
             memory.setint32(0xC81324, weatherId, true)
-            sampAddChatMessage("{73b4ff}[FlorenSwitcher]{ffffff} Погода изменена и сохранена: " .. weatherId, -1)
+            sampAddChatMessage("{73b4ff}[FlorenSwitcher]{ffffff} РџРѕРіРѕРґР° РёР·РјРµРЅРµРЅР° Рё СЃРѕС…СЂР°РЅРµРЅР°: " .. weatherId, -1)
         else
-            sampAddChatMessage(string.format("{73b4ff}[FlorenSwitcher]{ffffff} Ошибка: ID погоды должен быть от 0 до %d!", maxWeather), -1)
+            sampAddChatMessage(string.format("{73b4ff}[FlorenSwitcher]{ffffff} РћС€РёР±РєР°: ID РїРѕРіРѕРґС‹ РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ РѕС‚ 0 РґРѕ %d!", maxWeather), -1)
         end
     else
-        sampAddChatMessage(string.format("{73b4ff}[FlorenSwitcher]{ffffff} Использование: /%s <0-%d>", cfg.settings.weather_command, maxWeather), -1)
+        sampAddChatMessage(string.format("{73b4ff}[FlorenSwitcher]{ffffff} РСЃРїРѕР»СЊР·РѕРІР°РЅРёРµ: /%s <0-%d>", cfg.settings.weather_command, maxWeather), -1)
     end
 end
 
--- Обработчик команды времени
+-- РћР±СЂР°Р±РѕС‚С‡РёРє РєРѕРјР°РЅРґС‹ РІСЂРµРјРµРЅРё
 function cmd_time(arg)
     local maxHour = cfg.settings.maxhour or 24
     if arg and arg:match("^%d+$") then
@@ -137,22 +131,22 @@ function cmd_time(arg)
             cfg.settings.default_hour = hour
             local result = inicfg.save(cfg, config_name)
             if result then
-                sampfuncsLog("[FlorenSwitcher Debug] Час " .. hour .. " сохранен в конфиг.")
+                sampfuncsLog("[FlorenSwitcher] Р§Р°СЃ " .. hour .. " СЃРѕС…СЂР°РЅРµРЅ РІ РєРѕРЅС„РёРі.")
             else
-                sampfuncsLog("[FlorenSwitcher Debug] ОШИБКА сохранения времени в конфиг!")
+                sampfuncsLog("[FlorenSwitcher] РћРЁРР‘РљРђ СЃРѕС…СЂР°РЅРµРЅРёСЏ РІСЂРµРјРµРЅРё РІ РєРѕРЅС„РёРі!")
             end
 
             setTimeOfDay(hour, 0)
-            sampAddChatMessage(string.format("{73b4ff}[FlorenSwitcher]{ffffff} Время изменено и сохранено: %02d:00", hour), -1)
+            sampAddChatMessage(string.format("{73b4ff}[FlorenSwitcher]{ffffff} Р’СЂРµРјСЏ РёР·РјРµРЅРµРЅРѕ Рё СЃРѕС…СЂР°РЅРµРЅРѕ: %02d:00", hour), -1)
         else
-            sampAddChatMessage(string.format("{73b4ff}[FlorenSwitcher]{ffffff} Ошибка: час должен быть в диапазоне от 0 до %d!", maxHour), -1)
+            sampAddChatMessage(string.format("{73b4ff}[FlorenSwitcher]{ffffff} РћС€РёР±РєР°: С‡Р°СЃ РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ РІ РґРёР°РїР°Р·РѕРЅРµ РѕС‚ 0 РґРѕ %d!", maxHour), -1)
         end
     else
-        sampAddChatMessage(string.format("{73b4ff}[FlorenSwitcher]{ffffff} Использование: /%s <0-%d>", cfg.settings.time_command, maxHour), -1)
+        sampAddChatMessage(string.format("{73b4ff}[FlorenSwitcher]{ffffff} РСЃРїРѕР»СЊР·РѕРІР°РЅРёРµ: /%s <0-%d>", cfg.settings.time_command, maxHour), -1)
     end
 end
 
--- Обработчик команды /reset (удаление конфига и сброс фиксации)
+-- РћР±СЂР°Р±РѕС‚С‡РёРє РєРѕРјР°РЅРґС‹ /reset (СѓРґР°Р»РµРЅРёРµ РєРѕРЅС„РёРіР° Рё СЃР±СЂРѕСЃ С„РёРєСЃР°С†РёРё)
 function cmd_reset()
     locked_hour = -1
     locked_weather = -1
@@ -162,13 +156,13 @@ function cmd_reset()
     if doesFileExist(config_full_path) then
         local success = os.remove(config_full_path)
         if success then
-            sampfuncsLog("[FlorenSwitcher Debug] Файл конфигурации успешно удален через /reset.")
+            sampfuncsLog("[FlorenSwitcher] Р¤Р°Р№Р» РєРѕРЅС„РёРіСѓСЂР°С†РёРё СѓСЃРїРµС€РЅРѕ СѓРґР°Р»РµРЅ С‡РµСЂРµР· /reset.")
         else
-            sampfuncsLog("[FlorenSwitcher Debug] ОШИБКА: Не удалось удалить файл конфигурации!")
+            sampfuncsLog("[FlorenSwitcher] РћРЁРР‘РљРђ: РќРµ СѓРґР°Р»РѕСЃСЊ СѓРґР°Р»РёС‚СЊ С„Р°Р№Р» РєРѕРЅС„РёРіСѓСЂР°С†РёРё!")
         end
     else
-        sampfuncsLog("[FlorenSwitcher Debug] Файл конфигурации не найден при попытке удаления.")
+        sampfuncsLog("[FlorenSwitcher] Р¤Р°Р№Р» РєРѕРЅС„РёРіСѓСЂР°С†РёРё РЅРµ РЅР°Р№РґРµРЅ РїСЂРё РїРѕРїС‹С‚РєРµ СѓРґР°Р»РµРЅРёСЏ.")
     end
     
-    sampAddChatMessage("{73b4ff}[FlorenSwitcher]{ffffff} Конфигурация удалена. Настройки сброшены до серверных.", -1)
+    sampAddChatMessage("{73b4ff}[FlorenSwitcher]{ffffff} РљРѕРЅС„РёРіСѓСЂР°С†РёСЏ СѓРґР°Р»РµРЅР°. РќР°СЃС‚СЂРѕР№РєРё СЃР±СЂРѕС€РµРЅС‹ РґРѕ СЃРµСЂРІРµСЂРЅС‹С….", -1)
 end
