@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - master
   workflow_dispatch:
     inputs:
       script_name:
@@ -65,6 +66,7 @@ jobs:
         env:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
           GPG_PUBLIC_KEY: ${{ secrets.GPG_PUBLIC_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: |
           DEST="${{ env.SCRIPT_NAME }}.luac"
 
@@ -72,7 +74,7 @@ jobs:
           sha256sum "$DEST" > "${DEST}.sha256"
           sha512sum "$DEST" > "${DEST}.sha512"
 
-          # 2. Импорт личного GPG ключа для подписи
+          # 2. Импорт личного GPG ключа
           echo "$GPG_PRIVATE_KEY" | gpg --batch --pinentry-mode loopback --import
 
           # Получаем ID (отпечаток) импортированного ключа
@@ -82,8 +84,9 @@ jobs:
           # 3. Создаем publickey.asc из секретной переменной GPG_PUBLIC_KEY
           echo "$GPG_PUBLIC_KEY" > publickey.asc
 
-          # 4. Подписываем скомпилированный файл
-          gpg --batch --yes --pinentry-mode loopback --default-key "$KEY_ID" --detach-sign --armor --output "${DEST}.asc" "$DEST"
+          # 4. Подписываем скомпилированный файл с использованием парольной фразы
+          echo "Подписание файла с помощью GPG..."
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$GPG_PASSPHRASE" --default-key "$KEY_ID" --detach-sign --armor --output "${DEST}.asc" "$DEST"
 
       - name: Prepare Release Body with Instructions
         id: release_text
