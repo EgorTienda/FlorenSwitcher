@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - master
   workflow_dispatch:
     inputs:
       script_name:
@@ -62,7 +61,7 @@ jobs:
           echo "Компиляция $SRC -> $DEST"
           luajit -b "$SRC" "$DEST"
 
-     	- name: Generate Checksums & GPG Signature
+      - name: Generate Checksums & GPG Signature
         env:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
           GPG_PUBLIC_KEY: ${{ secrets.GPG_PUBLIC_KEY }}
@@ -73,7 +72,7 @@ jobs:
           sha256sum "$DEST" > "${DEST}.sha256"
           sha512sum "$DEST" > "${DEST}.sha512"
 
-          # 2. Импорт личного GPG ключа для подписи (с отключением пин-окон)
+          # 2. Импорт личного GPG ключа для подписи
           echo "$GPG_PRIVATE_KEY" | gpg --batch --pinentry-mode loopback --import
 
           # Получаем ID (отпечаток) импортированного ключа
@@ -83,9 +82,8 @@ jobs:
           # 3. Создаем publickey.asc из секретной переменной GPG_PUBLIC_KEY
           echo "$GPG_PUBLIC_KEY" > publickey.asc
 
-          # 4. Подписываем скомпилированный файл (добавлены флаги --batch --pinentry-mode loopback)
+          # 4. Подписываем скомпилированный файл
           gpg --batch --yes --pinentry-mode loopback --default-key "$KEY_ID" --detach-sign --armor --output "${DEST}.asc" "$DEST"
-
 
       - name: Prepare Release Body with Instructions
         id: release_text
