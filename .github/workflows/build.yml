@@ -70,7 +70,8 @@ jobs:
         run: |
           DEST="${{ env.SCRIPT_NAME }}.luac"
 
-          # 1. Генерация контрольных сумм
+          # 1. Генерация контрольных сумм (MD5, SHA256, SHA512)
+          md5sum "$DEST" > "${DEST}.md5"
           sha256sum "$DEST" > "${DEST}.sha256"
           sha512sum "$DEST" > "${DEST}.sha512"
 
@@ -84,36 +85,40 @@ jobs:
           # 3. Создаем publickey.asc из секретной переменной GPG_PUBLIC_KEY
           echo "$GPG_PUBLIC_KEY" > publickey.asc
 
-          # 4. Подписываем скомпилированный файл с использованием парольной фразы
+          # 4. Подписываем скомпилированный файл
           echo "Подписание файла с помощью GPG..."
           gpg --batch --yes --pinentry-mode loopback --passphrase "$GPG_PASSPHRASE" --default-key "$KEY_ID" --detach-sign --armor --output "${DEST}.asc" "$DEST"
 
-      - name: Prepare Release Body with Instructions
+      - name: Prepare Release Body with Instructions & Checksums
         id: release_text
         run: |
           DESC="${{ env.RELEASE_DESC }}"
           SCRIPT="${{ env.SCRIPT_NAME }}.luac"
           
+          # Читаем сгенерированные хэши в переменные для вставки в текст
+          MD5_VAL=$(cat "$SCRIPT.md5" | awk '{print $1}')
+          SHA256_VAL=$(cat "$SCRIPT.sha256" | awk '{print $1}')
+          SHA512_VAL=$(cat "$SCRIPT.sha512" | awk '{print $1}')
+          
           BODY="$DESC
 
           ---
-          ### 🔐 Проверка целостности и подписи (Verification)
+          ### 📦 Контрольные суммы файлов (Checksums)
+          Вы можете сверить хэши скачанного файла со следующими значениями:
 
-          Вы можете проверить подлинность и неизменность загруженного файла с помощью контрольных сумм и GPG-подписи.
+          * **MD5:** \`$MD5_VAL\`
+          * **SHA256:** \`$SHA256_VAL\`
+          * **SHA512:** \`$SHA512_VAL\`
 
-          #### 1. Проверка контрольных сумм (Checksums)
-          Убедитесь, что хэш файла совпадает:
-          \`\`\`bash
-          sha256sum -c $SCRIPT.sha256
-          sha512sum -c $SCRIPT.sha512
-          \`\`\`
+          *(Либо вы можете скачать файлы хэшей \`.md5\`, \`.sha256\`, \`.sha512\` из вложений релиза и проверить их через консоль: \`sha256sum -c $SCRIPT.sha256\`)*
 
-          #### 2. Проверка GPG-подписи (.asc)
-          Импортируйте наш публичный ключ из файла \`publickey.asc\`:
+          ---
+          ### 🔐 Проверка GPG-подписи (.asc)
+          Импортируйте публичный ключ из файла \`publickey.asc\` (или из вложений релиза):
           \`\`\`bash
           gpg --import publickey.asc
           \`\`\`
-          Затем выполните проверку подписи файла:
+          Затем выполните проверку подписи:
           \`\`\`bash
           gpg --verify $SCRIPT.asc $SCRIPT
           \`\`\`
@@ -134,6 +139,7 @@ jobs:
           files: |
             ${{ env.SCRIPT_NAME }}.luac
             ${{ env.SCRIPT_NAME }}.luac.asc
+            ${{ env.SCRIPT_NAME }}.luac.md5
             ${{ env.SCRIPT_NAME }}.luac.sha256
             ${{ env.SCRIPT_NAME }}.luac.sha512
             publickey.asc
