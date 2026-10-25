@@ -1,0 +1,65 @@
+name: Build and Release Lua Script
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      script_name:
+        description: 'Имя скрипта (без расширения .lua)'
+        required: true
+        default: 'florenswitcher'
+        type: string
+      version:
+        description: 'Версия релиза (например, v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+        type: string
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write # Требуется для создания релиза и загрузки файлов
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install LuaJIT
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y luajit
+
+      - name: Set variables
+        id: vars
+        run: |
+          # Если запуск ручной, берем данные из полей ввода, иначе значения по умолчанию
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "SCRIPT_NAME=${{ inputs.script_name }}" >> $GITHUB_ENV
+            echo "VERSION=${{ inputs.version }}" >> $GITHUB_ENV
+          else
+            echo "SCRIPT_NAME=florenswitcher" >> $GITHUB_ENV
+            echo "VERSION=v1.0.0" >> $GITHUB_ENV
+          fi
+
+      - name: Compile script to bytecode
+        run: |
+          SRC="${{ env.SCRIPT_NAME }}.lua"
+          DEST="${{ env.SCRIPT_NAME }}.luac"
+          
+          echo "Компиляция $SRC -> $DEST"
+          luajit -b "$SRC" "$DEST"
+
+      - name: Create Release and Upload Asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.VERSION }}
+          name: Release ${{ env.VERSION }}
+          files: ${{ env.SCRIPT_NAME }}.luac
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
